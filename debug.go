@@ -9,6 +9,66 @@ import (
 	lumberjack "gopkg.in/natefinch/lumberjack.v2"
 )
 
+var (
+	plainEpochTimeEncoderConfig = zapcore.EncoderConfig{
+		TimeKey:        "time",
+		LevelKey:       "level",
+		NameKey:        "logger",
+		CallerKey:      "caller",
+		MessageKey:     "msg",
+		StacktraceKey:  "stacktrace",
+		LineEnding:     zapcore.DefaultLineEnding,
+		EncodeLevel:    zapcore.CapitalLevelEncoder,
+		EncodeTime:     zapcore.EpochTimeEncoder,
+		EncodeDuration: zapcore.StringDurationEncoder,
+		EncodeCaller:   zapcore.ShortCallerEncoder,
+	}
+	colorTimeFormatEncoderConfig = zapcore.EncoderConfig{
+		TimeKey:        "time",
+		LevelKey:       "level",
+		NameKey:        "logger",
+		CallerKey:      "caller",
+		MessageKey:     "msg",
+		StacktraceKey:  "stacktrace",
+		LineEnding:     zapcore.DefaultLineEnding,
+		EncodeLevel:    zapcore.CapitalColorLevelEncoder,
+		EncodeTime:     zapcore.ISO8601TimeEncoder,
+		EncodeDuration: zapcore.StringDurationEncoder,
+		EncodeCaller:   zapcore.ShortCallerEncoder,
+	}
+	errorLevel = zap.LevelEnablerFunc(func(lvl zapcore.Level) bool {
+		return lvl >= zapcore.ErrorLevel
+	})
+	normalLevel = zap.LevelEnablerFunc(func(lvl zapcore.Level) bool {
+		return lvl < zapcore.ErrorLevel
+	})
+)
+
+func GetDevColorConsoleLogger() *zap.Logger {
+	return getDevConsoleLogger(zapcore.NewConsoleEncoder(colorTimeFormatEncoderConfig))
+}
+
+func GetDevJsonConsoleLogger() *zap.Logger {
+	return getDevConsoleLogger(zapcore.NewJSONEncoder(plainEpochTimeEncoderConfig))
+}
+
+func getDevConsoleLogger(encoder zapcore.Encoder) *zap.Logger {
+	var (
+		writeStdout = zapcore.AddSync(os.Stdout)
+		writeStderr = zapcore.AddSync(os.Stderr)
+	)
+	core := zapcore.NewTee(
+		zapcore.NewCore(encoder, writeStdout, normalLevel),
+		zapcore.NewCore(encoder, writeStderr, errorLevel),
+	)
+	logger := zap.New(
+		core,
+		zap.Development(),
+		zap.AddCaller(),
+		zap.AddStacktrace(zap.DPanicLevel))
+	return logger
+}
+
 func learn_global() {
 	jsonEncoderConfig := zapcore.NewJSONEncoder(zapcore.EncoderConfig{
 		TimeKey:        "time",
