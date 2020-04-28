@@ -5,7 +5,7 @@ import (
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	lumberjack "gopkg.in/natefinch/lumberjack.v2"
+	lj "gopkg.in/natefinch/lumberjack.v2"
 )
 
 var (
@@ -35,13 +35,16 @@ var (
 		EncodeDuration: zapcore.StringDurationEncoder,
 		EncodeCaller:   zapcore.ShortCallerEncoder,
 	})
-	aboveInfoLevel = zap.LevelEnablerFunc(func(lvl zapcore.Level) bool {
+	// check if the level is greater than or equal to info
+	geInfoLevel = zap.LevelEnablerFunc(func(lvl zapcore.Level) bool {
 		return lvl >= zapcore.InfoLevel
 	})
-	aboveErrorLevel = zap.LevelEnablerFunc(func(lvl zapcore.Level) bool {
+	// check if the level is greater than or equal to error
+	geErrorLevel = zap.LevelEnablerFunc(func(lvl zapcore.Level) bool {
 		return lvl >= zapcore.ErrorLevel
 	})
-	belowErrorLevel = zap.LevelEnablerFunc(func(lvl zapcore.Level) bool {
+	// check if the level is less than error
+	ltErrorLevel = zap.LevelEnablerFunc(func(lvl zapcore.Level) bool {
 		return lvl < zapcore.ErrorLevel
 	})
 )
@@ -69,8 +72,8 @@ func getConsoleLogger(encoder zapcore.Encoder, isDev bool) *zap.Logger {
 	)
 
 	core := zapcore.NewTee(
-		zapcore.NewCore(encoder, writeStdout, belowErrorLevel),
-		zapcore.NewCore(encoder, writeStderr, aboveErrorLevel),
+		zapcore.NewCore(encoder, writeStdout, ltErrorLevel),
+		zapcore.NewCore(encoder, writeStderr, geErrorLevel),
 	)
 
 	options := []zap.Option{
@@ -88,7 +91,7 @@ func getConsoleAndFileLogger(encoder zapcore.Encoder, logPath string) *zap.Logge
 	var (
 		writeStdout = zapcore.AddSync(os.Stdout)
 		writeStderr = zapcore.AddSync(os.Stderr)
-		logFile     = zapcore.AddSync(&lumberjack.Logger{
+		logFile     = zapcore.AddSync(&lj.Logger{
 			Filename:   logPath,
 			MaxBackups: 200, // numbers
 			MaxSize:    5,   // megabytes
@@ -98,14 +101,15 @@ func getConsoleAndFileLogger(encoder zapcore.Encoder, logPath string) *zap.Logge
 	)
 
 	core := zapcore.NewTee(
-		zapcore.NewCore(encoder, logFile, aboveInfoLevel),
-		zapcore.NewCore(encoder, writeStdout, belowErrorLevel),
-		zapcore.NewCore(encoder, writeStderr, aboveErrorLevel),
+		zapcore.NewCore(encoder, logFile, geInfoLevel),
+		zapcore.NewCore(encoder, writeStdout, ltErrorLevel),
+		zapcore.NewCore(encoder, writeStderr, geErrorLevel),
 	)
 
 	options := []zap.Option{
 		zap.AddCaller(),
 		zap.AddStacktrace(zap.ErrorLevel),
 	}
+
 	return zap.New(core, options...)
 }
