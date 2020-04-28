@@ -8,33 +8,50 @@ import (
 	lj "gopkg.in/natefinch/lumberjack.v2"
 )
 
+func GetDevColorConsoleLogger() *zap.Logger {
+	return getConsoleLogger(
+		zapcore.NewConsoleEncoder(
+			*customEncoderConfig(zapcore.CapitalColorLevelEncoder,
+				zapcore.ISO8601TimeEncoder)),
+		true)
+}
+
+func GetDevJsonConsoleLogger() *zap.Logger {
+	return getConsoleLogger(
+		zapcore.NewJSONEncoder(
+			*customEncoderConfig(zapcore.LowercaseLevelEncoder,
+				zapcore.ISO8601TimeEncoder)),
+		true)
+}
+
+func GetProdJsonConsoleLogger() *zap.Logger {
+	return getConsoleLogger(
+		zapcore.NewJSONEncoder(
+			*customEncoderConfig(zapcore.LowercaseLevelEncoder,
+				zapcore.ISO8601TimeEncoder)),
+		false)
+}
+
+func GetProdJsonConsoleAndFileLogger(logPath string) *zap.Logger {
+	return getConsoleAndFileLogger(logPath)
+}
+
 var (
-	jsonEncoder = zapcore.NewJSONEncoder(zapcore.EncoderConfig{
-		TimeKey:        "time",
-		LevelKey:       "level",
-		NameKey:        "logger",
-		CallerKey:      "caller",
-		MessageKey:     "msg",
-		StacktraceKey:  "stacktrace",
-		LineEnding:     zapcore.DefaultLineEnding,
-		EncodeLevel:    zapcore.CapitalLevelEncoder,
-		EncodeTime:     zapcore.EpochTimeEncoder,
-		EncodeDuration: zapcore.StringDurationEncoder,
-		EncodeCaller:   zapcore.ShortCallerEncoder,
-	})
-	consoleEncoder = zapcore.NewConsoleEncoder(zapcore.EncoderConfig{
-		TimeKey:        "time",
-		LevelKey:       "level",
-		NameKey:        "logger",
-		CallerKey:      "caller",
-		MessageKey:     "msg",
-		StacktraceKey:  "stacktrace",
-		LineEnding:     zapcore.DefaultLineEnding,
-		EncodeLevel:    zapcore.CapitalColorLevelEncoder,
-		EncodeTime:     zapcore.ISO8601TimeEncoder,
-		EncodeDuration: zapcore.StringDurationEncoder,
-		EncodeCaller:   zapcore.ShortCallerEncoder,
-	})
+	customEncoderConfig = func(lvlEnc zapcore.LevelEncoder, timeEnc zapcore.TimeEncoder) *zapcore.EncoderConfig {
+		return &zapcore.EncoderConfig{
+			TimeKey:        "time",
+			LevelKey:       "level",
+			NameKey:        "logger",
+			CallerKey:      "caller",
+			MessageKey:     "msg",
+			StacktraceKey:  "stacktrace",
+			LineEnding:     zapcore.DefaultLineEnding,
+			EncodeLevel:    lvlEnc,
+			EncodeTime:     timeEnc,
+			EncodeDuration: zapcore.StringDurationEncoder,
+			EncodeCaller:   zapcore.ShortCallerEncoder,
+		}
+	}
 	// check if the level is greater than or equal to info
 	geInfoLevel = zap.LevelEnablerFunc(func(lvl zapcore.Level) bool {
 		return lvl >= zapcore.InfoLevel
@@ -48,22 +65,6 @@ var (
 		return lvl < zapcore.ErrorLevel
 	})
 )
-
-func GetDevColorConsoleLogger() *zap.Logger {
-	return getConsoleLogger(consoleEncoder, true)
-}
-
-func GetDevJsonConsoleLogger() *zap.Logger {
-	return getConsoleLogger(jsonEncoder, true)
-}
-
-func GetProdJsonConsoleLogger() *zap.Logger {
-	return getConsoleLogger(jsonEncoder, false)
-}
-
-func GetProdJsonConsoleAndFileLogger(logPath string) *zap.Logger {
-	return getConsoleAndFileLogger(jsonEncoder, logPath)
-}
 
 func getConsoleLogger(encoder zapcore.Encoder, isDev bool) *zap.Logger {
 	var (
@@ -87,11 +88,15 @@ func getConsoleLogger(encoder zapcore.Encoder, isDev bool) *zap.Logger {
 	return zap.New(core, options...)
 }
 
-func getConsoleAndFileLogger(encoder zapcore.Encoder, logPath string) *zap.Logger {
+func getConsoleAndFileLogger(logPath string) *zap.Logger {
 	var (
+		jsonTimefmtEncoder = zapcore.NewJSONEncoder(*customEncoderConfig(zapcore.LowercaseLevelEncoder, zapcore.ISO8601TimeEncoder))
+		jsonEpochEncoder   = zapcore.NewJSONEncoder(*customEncoderConfig(zapcore.LowercaseLevelEncoder, zapcore.EpochTimeEncoder))
+
 		writeStdout = zapcore.AddSync(os.Stdout)
 		writeStderr = zapcore.AddSync(os.Stderr)
-		logFile     = zapcore.AddSync(&lj.Logger{
+
+		logFile = zapcore.AddSync(&lj.Logger{
 			Filename:   logPath,
 			MaxBackups: 200, // numbers
 			MaxSize:    5,   // megabytes
@@ -101,9 +106,9 @@ func getConsoleAndFileLogger(encoder zapcore.Encoder, logPath string) *zap.Logge
 	)
 
 	core := zapcore.NewTee(
-		zapcore.NewCore(encoder, logFile, geInfoLevel),
-		zapcore.NewCore(encoder, writeStdout, ltErrorLevel),
-		zapcore.NewCore(encoder, writeStderr, geErrorLevel),
+		zapcore.NewCore(jsonEpochEncoder, logFile, geInfoLevel),
+		zapcore.NewCore(jsonTimefmtEncoder, writeStdout, ltErrorLevel),
+		zapcore.NewCore(jsonTimefmtEncoder, writeStderr, geErrorLevel),
 	)
 
 	options := []zap.Option{
