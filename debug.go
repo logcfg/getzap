@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	plainEpochTimeEncoderConfig = zapcore.EncoderConfig{
+	jsonEncoder = zapcore.NewJSONEncoder(zapcore.EncoderConfig{
 		TimeKey:        "time",
 		LevelKey:       "level",
 		NameKey:        "logger",
@@ -22,8 +22,8 @@ var (
 		EncodeTime:     zapcore.EpochTimeEncoder,
 		EncodeDuration: zapcore.StringDurationEncoder,
 		EncodeCaller:   zapcore.ShortCallerEncoder,
-	}
-	colorTimeFormatEncoderConfig = zapcore.EncoderConfig{
+	})
+	consoleEncoder = zapcore.NewConsoleEncoder(zapcore.EncoderConfig{
 		TimeKey:        "time",
 		LevelKey:       "level",
 		NameKey:        "logger",
@@ -35,7 +35,7 @@ var (
 		EncodeTime:     zapcore.ISO8601TimeEncoder,
 		EncodeDuration: zapcore.StringDurationEncoder,
 		EncodeCaller:   zapcore.ShortCallerEncoder,
-	}
+	})
 	errorLevel = zap.LevelEnablerFunc(func(lvl zapcore.Level) bool {
 		return lvl >= zapcore.ErrorLevel
 	})
@@ -45,20 +45,21 @@ var (
 )
 
 func GetDevColorConsoleLogger() *zap.Logger {
-	return getConsoleLogger(zapcore.NewConsoleEncoder(colorTimeFormatEncoderConfig), true)
+	return getConsoleLogger(consoleEncoder, true)
 }
 
 func GetDevJsonConsoleLogger() *zap.Logger {
-	return getConsoleLogger(zapcore.NewJSONEncoder(plainEpochTimeEncoderConfig), true)
+	return getConsoleLogger(jsonEncoder, true)
 }
 
 func GetProdJsonConsoleLogger() *zap.Logger {
-	return getConsoleLogger(zapcore.NewJSONEncoder(plainEpochTimeEncoderConfig), false)
+	return getConsoleLogger(jsonEncoder, false)
 }
 
 func GetProdJsonConsoleAndFileLogger() *zap.Logger {
 	// TODO:
-	return getConsoleLogger(zapcore.NewJSONEncoder(plainEpochTimeEncoderConfig), true)
+	//return getConsoleLogger(zapcore.NewJSONEncoder(plainEpochTimeEncoderConfig), true)
+	return nil
 }
 
 func getConsoleLogger(encoder zapcore.Encoder, isDev bool) *zap.Logger {
