@@ -64,10 +64,6 @@ var (
 	ltErrorLevel = zap.LevelEnablerFunc(func(lvl zapcore.Level) bool {
 		return lvl < zapcore.ErrorLevel
 	})
-	// for all level
-	allLevel = zap.LevelEnablerFunc(func(lvl zapcore.Level) bool {
-		return true
-	})
 )
 
 func getConsoleLogger(encoder zapcore.Encoder, isDev bool) *zap.Logger {
