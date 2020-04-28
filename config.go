@@ -21,12 +21,6 @@ import (
 // Logs with level DPANIC or above will cause panic after writing the message.
 func GetDevelopmentLogger(normalLogPath, errorLogPath string) *zap.Logger {
 	var (
-		consoleEncoder = zapcore.NewConsoleEncoder(*genEncoderConfig(zapcore.CapitalColorLevelEncoder))
-		jsonEncoder    = zapcore.NewJSONEncoder(*genEncoderConfig(zapcore.LowercaseLevelEncoder))
-
-		writeStdout = zapcore.AddSync(os.Stdout)
-		writeStderr = zapcore.AddSync(os.Stderr)
-
 		normalLogFile = zapcore.AddSync(&lj.Logger{
 			Filename:   normalLogPath,
 			MaxBackups: 20, // numbers
@@ -47,13 +41,11 @@ func GetDevelopmentLogger(normalLogPath, errorLogPath string) *zap.Logger {
 		zapcore.NewCore(consoleEncoder, writeStderr, errorLevel),
 		zapcore.NewCore(jsonEncoder, errorLogFile, normalLevel),
 	)
-
 	options := []zap.Option{
 		zap.Development(),
 		zap.AddCaller(),
 		zap.AddStacktrace(zap.ErrorLevel),
 	}
-
 	return zap.New(core, options...)
 }
 
@@ -63,11 +55,28 @@ func GetDevelopmentLogger(normalLogPath, errorLogPath string) *zap.Logger {
 //
 // Logs with level INFO or above will be written to:
 //    a) stdout in JSON format;
-//    b) log files in JSON format with rotation and compression;
+//    b) log files in JSON format with rotation, expiration and compression;
 //
 // Logs with level PANIC or above will cause panic after writing the message.
-func GetProductionLogger() *zap.Logger {
-	return nil
+func GetProductionLogger(logPath string) *zap.Logger {
+	var (
+		logFile = zapcore.AddSync(&lj.Logger{
+			Filename: logPath,
+			MaxSize:  10, // megabytes
+			MaxAge:   30, // days
+			Compress: true,
+		})
+	)
+
+	core := zapcore.NewTee(
+		zapcore.NewCore(jsonEncoder, writeStdout, infoLevel),
+		zapcore.NewCore(jsonEncoder, logFile, infoLevel),
+	)
+	options := []zap.Option{
+		zap.AddCaller(),
+		zap.AddStacktrace(zap.ErrorLevel),
+	}
+	return zap.New(core, options...)
 }
 
 var (
@@ -98,4 +107,10 @@ var (
 	infoLevel = zap.LevelEnablerFunc(func(lvl zapcore.Level) bool {
 		return lvl >= zapcore.InfoLevel
 	})
+	// log encoders
+	consoleEncoder = zapcore.NewConsoleEncoder(*genEncoderConfig(zapcore.CapitalColorLevelEncoder))
+	jsonEncoder    = zapcore.NewJSONEncoder(*genEncoderConfig(zapcore.LowercaseLevelEncoder))
+	// std log writers
+	writeStdout = zapcore.AddSync(os.Stdout)
+	writeStderr = zapcore.AddSync(os.Stderr)
 )
