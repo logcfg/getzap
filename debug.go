@@ -45,28 +45,42 @@ var (
 )
 
 func GetDevColorConsoleLogger() *zap.Logger {
-	return getDevConsoleLogger(zapcore.NewConsoleEncoder(colorTimeFormatEncoderConfig))
+	return getConsoleLogger(zapcore.NewConsoleEncoder(colorTimeFormatEncoderConfig), true)
 }
 
 func GetDevJsonConsoleLogger() *zap.Logger {
-	return getDevConsoleLogger(zapcore.NewJSONEncoder(plainEpochTimeEncoderConfig))
+	return getConsoleLogger(zapcore.NewJSONEncoder(plainEpochTimeEncoderConfig), true)
 }
 
-func getDevConsoleLogger(encoder zapcore.Encoder) *zap.Logger {
+func GetProdJsonConsoleLogger() *zap.Logger {
+	return getConsoleLogger(zapcore.NewJSONEncoder(plainEpochTimeEncoderConfig), false)
+}
+
+func GetProdJsonConsoleAndFileLogger() *zap.Logger {
+	// TODO:
+	return getConsoleLogger(zapcore.NewJSONEncoder(plainEpochTimeEncoderConfig), true)
+}
+
+func getConsoleLogger(encoder zapcore.Encoder, isDev bool) *zap.Logger {
 	var (
 		writeStdout = zapcore.AddSync(os.Stdout)
 		writeStderr = zapcore.AddSync(os.Stderr)
 	)
+
 	core := zapcore.NewTee(
 		zapcore.NewCore(encoder, writeStdout, normalLevel),
 		zapcore.NewCore(encoder, writeStderr, errorLevel),
 	)
-	logger := zap.New(
-		core,
-		zap.Development(),
+
+	options := []zap.Option{
 		zap.AddCaller(),
-		zap.AddStacktrace(zap.DPanicLevel))
-	return logger
+		zap.AddStacktrace(zap.ErrorLevel),
+	}
+	if isDev {
+		options = append(options, zap.Development())
+	}
+
+	return zap.New(core, options...)
 }
 
 func learn_global() {
