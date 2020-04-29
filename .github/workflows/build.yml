@@ -1,5 +1,8 @@
 name: Build
-on: [push]
+on:
+  push:
+    paths-ignore:
+      - "**.md"
 jobs:
   build:
     name: Build with go${{ matrix.go-version }} on ${{ matrix.vm-os }}
