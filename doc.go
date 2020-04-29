@@ -1,5 +1,5 @@
 /*
-Package getzap provides a collection of preset configurations for uber-go/zap logger.
+Package getzap provides a collection of sophisticated uber-go/zap loggers.
 
 For each config, the following aspects are considered:
 
