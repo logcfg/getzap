@@ -35,5 +35,4 @@ jobs:
       - name: Build & Test
         shell: bash
         run: |
-          make all
-          make test
+          make ci

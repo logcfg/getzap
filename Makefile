@@ -10,7 +10,7 @@ GOGET=$(GOCMD) get
 GOMOD=$(GOCMD) mod
 
 all: fmt build doc
-ci: build test bench
+ci: build doc test
 doc:
 	$(GODOC) -all .
 fmt:
