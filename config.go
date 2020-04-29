@@ -9,7 +9,7 @@ import (
 	lj "gopkg.in/natefinch/lumberjack.v2"
 )
 
-// GetDevelopmentLogger returns a sophisticated, sophisticated logger for development.
+// GetDevelopmentLogger returns a sophisticated, customized logger for development.
 //
 // Logs with level below than ERROR will be written to:
 //    a) stdout in TSV format with colored level;
@@ -89,6 +89,18 @@ func GetProductionLogger(logPath string) *zap.Logger {
 	}
 
 	return zap.New(zapcore.NewTee(cores...), options...)
+}
+
+// SetGlobalDevelopmentLogger sets the logger returned from GetDevelopmentLogger() as the global Logger and SugaredLogger of zap.
+func SetGlobalDevelopmentLogger(normalLogPath, errorLogPath string) {
+	_ = zap.ReplaceGlobals(GetDevelopmentLogger(normalLogPath, errorLogPath))
+	return
+}
+
+// SetGlobalProductionLogger sets the logger returned from GetProductionLogger() as the global Logger and SugaredLogger of zap.
+func SetGlobalProductionLogger(logPath string) {
+	_ = zap.ReplaceGlobals(GetProductionLogger(logPath))
+	return
 }
 
 var (
