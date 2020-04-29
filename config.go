@@ -2,6 +2,7 @@ package getzap
 
 import (
 	"os"
+	"strings"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -19,34 +20,41 @@ import (
 //    b) error log files in JSON format with rotation (max size is 10MB, retain at most 20 files) and expiration (14 days);
 //
 // Logs with level DPANIC or above will cause panic after writing the message.
+//
+// Log files won't be created if the given log file path is empty or blank.
 func GetDevelopmentLogger(normalLogPath, errorLogPath string) *zap.Logger {
-	var (
-		normalLogFile = zapcore.AddSync(&lj.Logger{
+	cores := []zapcore.Core{
+		zapcore.NewCore(consoleEncoder, writeStdout, normalLevel),
+		zapcore.NewCore(consoleEncoder, writeStderr, errorLevel),
+	}
+
+	normalLogPath, errorLogPath = strings.TrimSpace(normalLogPath), strings.TrimSpace(errorLogPath)
+	if len(normalLogPath) > 0 {
+		normalLogFile := zapcore.AddSync(&lj.Logger{
 			Filename:   normalLogPath,
 			MaxBackups: 20, // numbers
 			MaxSize:    10, // megabytes
 			MaxAge:     14, // days
 		})
-		errorLogFile = zapcore.AddSync(&lj.Logger{
+		cores = append(cores, zapcore.NewCore(jsonEncoder, normalLogFile, normalLevel))
+	}
+	if len(errorLogPath) > 0 {
+		errorLogFile := zapcore.AddSync(&lj.Logger{
 			Filename:   errorLogPath,
 			MaxBackups: 20, // numbers
 			MaxSize:    10, // megabytes
 			MaxAge:     14, // days
 		})
-	)
+		cores = append(cores, zapcore.NewCore(jsonEncoder, errorLogFile, errorLevel))
+	}
 
-	core := zapcore.NewTee(
-		zapcore.NewCore(consoleEncoder, writeStdout, normalLevel),
-		zapcore.NewCore(jsonEncoder, normalLogFile, normalLevel),
-		zapcore.NewCore(consoleEncoder, writeStderr, errorLevel),
-		zapcore.NewCore(jsonEncoder, errorLogFile, errorLevel),
-	)
 	options := []zap.Option{
 		zap.Development(),
 		zap.AddCaller(),
 		zap.AddStacktrace(zap.ErrorLevel),
 	}
-	return zap.New(core, options...)
+
+	return zap.New(zapcore.NewTee(cores...), options...)
 }
 
 // GetProductionLogger returns a sophisticated, customized logger for production deployment.
@@ -58,29 +66,33 @@ func GetDevelopmentLogger(normalLogPath, errorLogPath string) *zap.Logger {
 //    b) log files in JSON format with rotation (max size is 10MB), expiration (30 days) and compression (.gz);
 //
 // Logs with level PANIC or above will cause panic after writing the message.
+//
+// Log files won't be created if the given log file path is empty or blank.
 func GetProductionLogger(logPath string) *zap.Logger {
-	var (
-		logFile = zapcore.AddSync(&lj.Logger{
+	cores := []zapcore.Core{
+		zapcore.NewCore(jsonEncoder, writeStdout, infoLevel),
+	}
+
+	if logPath = strings.TrimSpace(logPath); len(logPath) > 0 {
+		logFile := zapcore.AddSync(&lj.Logger{
 			Filename: logPath,
 			MaxSize:  10, // megabytes
 			MaxAge:   30, // days
 			Compress: true,
 		})
-	)
+		cores = append(cores, zapcore.NewCore(jsonEncoder, logFile, infoLevel))
+	}
 
-	core := zapcore.NewTee(
-		zapcore.NewCore(jsonEncoder, writeStdout, infoLevel),
-		zapcore.NewCore(jsonEncoder, logFile, infoLevel),
-	)
 	options := []zap.Option{
 		zap.AddCaller(),
 		zap.AddStacktrace(zap.ErrorLevel),
 	}
-	return zap.New(core, options...)
+
+	return zap.New(zapcore.NewTee(cores...), options...)
 }
 
 var (
-	genEncoderConfig = func(lvlEnc zapcore.LevelEncoder) *zapcore.EncoderConfig {
+	getEncoderConfig = func(lvlEnc zapcore.LevelEncoder) *zapcore.EncoderConfig {
 		return &zapcore.EncoderConfig{
 			TimeKey:        "time",
 			LevelKey:       "level",
@@ -108,8 +120,8 @@ var (
 		return lvl >= zapcore.InfoLevel
 	})
 	// log encoders
-	consoleEncoder = zapcore.NewConsoleEncoder(*genEncoderConfig(zapcore.CapitalColorLevelEncoder))
-	jsonEncoder    = zapcore.NewJSONEncoder(*genEncoderConfig(zapcore.LowercaseLevelEncoder))
+	consoleEncoder = zapcore.NewConsoleEncoder(*getEncoderConfig(zapcore.CapitalColorLevelEncoder))
+	jsonEncoder    = zapcore.NewJSONEncoder(*getEncoderConfig(zapcore.LowercaseLevelEncoder))
 	// std log writers
 	writeStdout = zapcore.AddSync(os.Stdout)
 	writeStderr = zapcore.AddSync(os.Stderr)
