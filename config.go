@@ -16,7 +16,7 @@ import (
 //
 // Logs with level ERROR or above will be written to:
 //    a) stderr in TSV format with colored level;
-//    b) error log files in JSON format with rotation and expiration;
+//    b) error log files in JSON format with rotation (max size is 10MB, retain at most 20 files) and expiration (14 days);
 //
 // Logs with level DPANIC or above will cause panic after writing the message.
 func GetDevelopmentLogger(normalLogPath, errorLogPath string) *zap.Logger {
@@ -39,7 +39,7 @@ func GetDevelopmentLogger(normalLogPath, errorLogPath string) *zap.Logger {
 		zapcore.NewCore(consoleEncoder, writeStdout, normalLevel),
 		zapcore.NewCore(jsonEncoder, normalLogFile, normalLevel),
 		zapcore.NewCore(consoleEncoder, writeStderr, errorLevel),
-		zapcore.NewCore(jsonEncoder, errorLogFile, normalLevel),
+		zapcore.NewCore(jsonEncoder, errorLogFile, errorLevel),
 	)
 	options := []zap.Option{
 		zap.Development(),
@@ -55,7 +55,7 @@ func GetDevelopmentLogger(normalLogPath, errorLogPath string) *zap.Logger {
 //
 // Logs with level INFO or above will be written to:
 //    a) stdout in JSON format;
-//    b) log files in JSON format with rotation, expiration and compression;
+//    b) log files in JSON format with rotation (max size is 10MB), expiration (30 days) and compression (.gz);
 //
 // Logs with level PANIC or above will cause panic after writing the message.
 func GetProductionLogger(logPath string) *zap.Logger {
